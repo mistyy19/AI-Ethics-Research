@@ -1,7 +1,7 @@
 <template>
   <ion-page>
     <app-header />
-    
+
     <ion-content>
       <div class="profile-container">
         <!-- User Info -->
@@ -59,6 +59,7 @@ import {
 } from '@ionic/vue';
 import AppHeader from '@/components/common/AppHeader.vue';
 import { useSurveyStore } from '@/stores/survey';
+import { useAuthStore } from '@/stores/auth';
 import type { Survey } from '@/types/survey';
 
 export default defineComponent({
@@ -80,11 +81,21 @@ export default defineComponent({
   setup() {
     const router = useRouter();
     const surveyStore = useSurveyStore();
+    const authStore = useAuthStore();
+
+    // 定义 userSurveys 的类型，初始为空数组
     const userSurveys = ref<Survey[]>([]);
 
     const loadUserSurveys = async () => {
       try {
-        userSurveys.value = await surveyStore.getUserSurveys();
+        const userId = authStore.user?.id; // 获取当前用户的 ID
+        if (userId) {
+          // 调用 store 获取当前用户的调查列表
+          userSurveys.value = await surveyStore.getUserSurveys(userId) as Survey[]; // 确保返回值类型为 Survey[]
+        } else {
+          console.error("User ID is missing. Please log in.");
+          router.push('/login');
+        }
       } catch (error) {
         console.error('Failed to load user surveys:', error);
       }
@@ -102,13 +113,14 @@ export default defineComponent({
       router.push('/home');
     };
 
+    // 页面加载时调用加载用户调查的函数
     onMounted(loadUserSurveys);
 
     return {
-      userSurveys,
-      viewResults,
-      formatDate,
-      returnToHome
+      userSurveys, // 确保返回 userSurveys
+      viewResults, // 确保返回 viewResults
+      formatDate,  // 确保返回 formatDate
+      returnToHome // 确保返回 returnToHome
     };
   }
 });

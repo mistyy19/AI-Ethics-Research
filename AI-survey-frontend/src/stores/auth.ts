@@ -4,46 +4,58 @@ import { ref, computed } from 'vue';
 import axios from 'axios';
 
 // 创建 axios 实例
-const api = axios.create({
-  baseURL: 'http://localhost:8080',  // 确保与后端端口匹配
-  headers: {
-    'Content-Type': 'application/json'
-  }
+export const api = axios.create({
+  baseURL: 'http://localhost:8080'
 });
 
-// 添加请求拦截器
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+// 从 localStorage 恢复状态的函数
+const getStoredAuth = () => {
+  const token = localStorage.getItem('token');
+  const storedUser = localStorage.getItem('user');
+  return {
+    token,
+    user: storedUser ? JSON.parse(storedUser) : null
+  };
+};
+
+// 设置 axios 默认 token
+const storedAuth = getStoredAuth();
+if (storedAuth.token) {
+  api.defaults.headers.common['Authorization'] = `Bearer ${storedAuth.token}`;
+}
 
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref<User | null>(null);
-  const token = ref<string | null>(null);
+  // 初始化时从 localStorage 加载状态
+  const initialAuth = getStoredAuth();
+  const token = ref<string | null>(initialAuth.token);
+  const user = ref<User | null>(initialAuth.user);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const redirectPath = ref<string | null>(null);
 
   const isAuthenticated = computed(() => !!user.value && !!token.value);
+
+  // 更新认证信息的函数
+  const updateAuth = (newToken: string, newUser: User) => {
+    token.value = newToken;
+    user.value = newUser;
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('user', JSON.stringify(newUser));
+    api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+  };
+
+  const setRedirectPath = (path: string | null) => {
+    redirectPath.value = path;
+  };
 
   const login = async (form: LoginForm) => {
     try {
       loading.value = true;
       error.value = null;
       const response = await api.post<AuthResponse>('/api/auth/login', form);
-      user.value = response.data.user;
-      token.value = response.data.token;
-      localStorage.setItem('token', response.data.token);
+      updateAuth(response.data.token, response.data.user);
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Login failed';
-      console.error('Login error:', err);
       throw error.value;
     } finally {
       loading.value = false;
@@ -55,12 +67,9 @@ export const useAuthStore = defineStore('auth', () => {
       loading.value = true;
       error.value = null;
       const response = await api.post<AuthResponse>('/api/auth/register', form);
-      user.value = response.data.user;
-      token.value = response.data.token;
-      localStorage.setItem('token', response.data.token);
+      updateAuth(response.data.token, response.data.user);
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Registration failed';
-      console.error('Registration error:', err);
       throw error.value;
     } finally {
       loading.value = false;
@@ -68,35 +77,52 @@ export const useAuthStore = defineStore('auth', () => {
   };
 
   const logout = () => {
-    user.value = null;
     token.value = null;
+    user.value = null;
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    delete api.defaults.headers.common['Authorization'];
   };
 
   const checkAuth = async () => {
-    const savedToken = localStorage.getItem('token');
-    if (savedToken) {
-      try {
-        const response = await api.get<User>('/api/auth/me');
-        user.value = response.data;
-        token.value = savedToken;
-      } catch (err) {
-        console.error('Auth check failed:', err);
-        localStorage.removeItem('token');
-        user.value = null;
-        token.value = null;
-      }
+    const currentToken = localStorage.getItem('token');
+    if (!currentToken) {
+      logout();
+      return;
+    }
+
+    try {
+      // 确保设置了 token
+      api.defaults.headers.common['Authorization'] = `Bearer ${currentToken}`;
+      const response = await api.get<User>('/api/auth/me');
+      user.value = response.data;
+      token.value = currentToken;
+      localStorage.setItem('user', JSON.stringify(response.data));
+    } catch (err) {
+      console.error('Auth check failed:', err);
+      logout();
     }
   };
 
-  // 初始化检查认证状态
-  checkAuth();
+  // 添加响应拦截器处理认证错误
+  api.interceptors.response.use(
+    response => response,
+    error => {
+      if (error.response?.status === 401) {
+        logout();
+      }
+      return Promise.reject(error);
+    }
+  );
 
   return {
     user,
+    token,
     loading,
     error,
     isAuthenticated,
+    redirectPath,
+    setRedirectPath,
     login,
     register,
     logout,

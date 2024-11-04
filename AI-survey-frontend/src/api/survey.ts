@@ -35,8 +35,10 @@ export const surveyApi = {
     const response = await api.get<SurveyResult[]>(`/surveys/${surveyId}/results`);
     return response.data;
   },
-  getUserSurveys: async () => {
-    const response = await api.get<Survey[]>('/surveys/user');
+
+  // 接收 userId 参数
+  getUserSurveys: async (userId: string) => {
+    const response = await api.get<Survey[]>(`/surveys/user/${userId}`);
     return response.data;
   }
 };

@@ -1,6 +1,6 @@
-import { defineStore } from 'pinia'
-import type { Survey, EthicsComparison, SurveyResult } from '../types/survey'
-import { surveyApi } from '../api/survey'
+import { defineStore } from 'pinia';
+import type { Survey, EthicsComparison, SurveyResult } from '../types/survey';
+import { surveyApi } from '../api/survey';
 
 export const useSurveyStore = defineStore('survey', {
   state: () => ({
@@ -25,10 +25,10 @@ export const useSurveyStore = defineStore('survey', {
       }
     },
 
-    async getUserSurveys() {
+    async getUserSurveys(userId: string) { // 接收 userId 参数
       this.loading = true;
       try {
-        return await surveyApi.getUserSurveys();
+        return await surveyApi.getUserSurveys(userId); // 传递 userId 给 API 调用
       } catch (error) {
         this.error = 'Failed to fetch user surveys';
         console.error(error);
@@ -68,4 +68,4 @@ export const useSurveyStore = defineStore('survey', {
       }
     }
   }
-})
+});

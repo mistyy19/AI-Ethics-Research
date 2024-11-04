@@ -5,16 +5,25 @@
 </template>
 
 <script lang="ts">
-import { IonApp, IonRouterOutlet } from '@ionic/vue'
-import { defineComponent } from 'vue'
+import { IonApp, IonRouterOutlet } from '@ionic/vue';
+import { defineComponent, onMounted } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 
 export default defineComponent({
   name: 'App',
   components: {
     IonApp,
     IonRouterOutlet
+  },
+  setup() {
+    const authStore = useAuthStore();
+
+    // 页面加载时检查登录状态
+    onMounted(async () => {
+      await authStore.checkAuth();
+    });
   }
-})
+});
 </script>
 
 <style>

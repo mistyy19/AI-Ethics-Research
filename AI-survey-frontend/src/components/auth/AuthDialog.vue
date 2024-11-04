@@ -124,6 +124,7 @@ export default defineComponent({
         await authStore.register(registerForm.value);
         emit('auth-success');
         close();
+        router.push('/user-profile');
       } catch (error) {
         // Error is handled by the store
       }

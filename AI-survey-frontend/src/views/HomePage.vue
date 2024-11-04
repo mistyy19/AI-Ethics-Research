@@ -90,7 +90,7 @@ export default defineComponent({
   },
   setup() {
     const router: Router = useRouter()
-    const robotImage = ref('')  // 暂时用空字符串替代
+    const robotImage = ref('')  
     
     const contexts: Context[] = [
       {

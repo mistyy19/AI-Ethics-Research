@@ -109,7 +109,7 @@ export default defineComponent({
         await authStore.login(loginForm.value);
         emit('auth-success');
         close();
-        router.push(props.redirectRoute || '/user-profile'); // 登录成功后根据传递的路由跳转
+        router.push(props.redirectRoute || '/user-profile'); 
       } catch (error) {
         // Error is handled by the store
       }

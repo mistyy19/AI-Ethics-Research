@@ -78,7 +78,7 @@ export default defineComponent({
 
     const handleAuthSuccess = () => {
       isAuthDialogOpen.value = false;
-      redirectRoute.value = undefined; // 重置
+      redirectRoute.value = undefined; 
     };
 
     const handleLogout = async () => {
@@ -108,7 +108,7 @@ export default defineComponent({
       if (isAuthenticated.value) {
         router.push('/create');
       } else {
-        redirectRoute.value = '/create'; // 设置登录成功后的重定向路径为创建页面
+        redirectRoute.value = '/create'; 
         openAuthDialog();
       }
     };
@@ -117,7 +117,7 @@ export default defineComponent({
       if (isAuthenticated.value) {
         router.push('/user-profile');
       } else {
-        redirectRoute.value = '/user-profile'; // 设置登录成功后的重定向路径为用户资料页面
+        redirectRoute.value = '/user-profile'; 
         openAuthDialog();
       }
     };

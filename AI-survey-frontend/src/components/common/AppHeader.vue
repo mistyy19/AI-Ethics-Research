@@ -18,7 +18,7 @@
             <ion-button @click="handleLogout" class="nav-link">Logout</ion-button>
           </template>
           <template v-else>
-            <ion-button @click="openAuthDialog" class="nav-link">Account</ion-button>
+            <ion-button @click="handleAccount" class="nav-link">Account</ion-button>
           </template>
         </ion-buttons>
       </div>
@@ -26,15 +26,17 @@
       <ion-buttons slot="end" class="nav-buttons">
         <ion-button router-link="/why-ethics" class="nav-link">Why AI Ethics Matters</ion-button>
         <ion-button router-link="/about" class="nav-link">About the Researchers</ion-button>
-        <ion-button router-link="/create" class="nav-link">Create</ion-button>
+        <!-- Create button now checks authentication before routing -->
+        <ion-button @click="handleCreate" class="nav-link">Create</ion-button>
         <ion-button router-link="/judge" class="start-judging-btn" fill="solid">Start Judging!</ion-button>
       </ion-buttons>
     </ion-toolbar>
 
-    <!-- Auth Dialog -->
+    <!-- Auth Dialog with redirectRoute -->
     <auth-dialog
       v-model:is-open="isAuthDialogOpen"
       @auth-success="handleAuthSuccess"
+      :redirectRoute="redirectRoute"
     />
   </ion-header>
 </template>
@@ -46,7 +48,7 @@ import {
   IonToolbar, 
   IonButtons, 
   IonButton,
-  alertController // 引入 alertController
+  alertController
 } from '@ionic/vue';
 import { useAuthStore } from '@/stores/auth';
 import AuthDialog from '@/components/auth/AuthDialog.vue';
@@ -68,6 +70,7 @@ export default defineComponent({
     const { isAuthenticated } = storeToRefs(authStore);
     
     const isAuthDialogOpen = ref(false);
+    const redirectRoute = ref<string | undefined>(undefined);
 
     const openAuthDialog = () => {
       isAuthDialogOpen.value = true;
@@ -75,6 +78,7 @@ export default defineComponent({
 
     const handleAuthSuccess = () => {
       isAuthDialogOpen.value = false;
+      redirectRoute.value = undefined; // 重置
     };
 
     const handleLogout = async () => {
@@ -84,17 +88,14 @@ export default defineComponent({
         buttons: [
           {
             text: 'Cancel',
-            role: 'cancel',
-            handler: () => {
-              // 用户取消操作
-            }
+            role: 'cancel'
           },
           {
             text: 'Logout',
             role: 'confirm',
             handler: () => {
               authStore.logout();
-              router.push('/home'); // 退出登录后导航到主页
+              router.push('/home');
             }
           }
         ]
@@ -103,17 +104,37 @@ export default defineComponent({
       await alert.present();
     };
 
+    const handleCreate = () => {
+      if (isAuthenticated.value) {
+        router.push('/create');
+      } else {
+        redirectRoute.value = '/create'; // 设置登录成功后的重定向路径为创建页面
+        openAuthDialog();
+      }
+    };
+
+    const handleAccount = () => {
+      if (isAuthenticated.value) {
+        router.push('/user-profile');
+      } else {
+        redirectRoute.value = '/user-profile'; // 设置登录成功后的重定向路径为用户资料页面
+        openAuthDialog();
+      }
+    };
+
     return {
       isAuthenticated,
       isAuthDialogOpen,
+      redirectRoute,
       openAuthDialog,
       handleAuthSuccess,
-      handleLogout
+      handleLogout,
+      handleCreate,
+      handleAccount
     };
   }
 });
 </script>
-
 
 
 <style scoped>

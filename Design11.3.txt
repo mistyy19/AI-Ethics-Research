@@ -1,0 +1,132 @@
+# AI Ethics Survey Platform Architecture Design
+
+## 1. 技术栈
+### 前端
+- Ionic + Vue 3 
+- Vue Router
+- Vuex/Pinia (状态管理)
+- Axios (HTTP 客户端)
+- Capacitor (用于打包移动应用)
+
+### 后端
+- Spring Boot 3.2.11
+- Spring Security (认证授权)
+- Spring Data JPA
+- MySQL
+- Qualtrics API 集成
+
+## 2. 数据模型
+
+### Survey
+```sql
+CREATE TABLE surveys (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    context VARCHAR(100) NOT NULL,
+    location VARCHAR(255),
+    image_url VARCHAR(255),
+    creator_id BIGINT,
+    is_public BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    qualtrics_survey_id VARCHAR(255),
+    FOREIGN KEY (creator_id) REFERENCES users(id)
+);
+```
+
+### Response (问卷回答)
+```sql
+CREATE TABLE survey_responses (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    survey_id BIGINT,
+    user_id BIGINT,
+    ethics_rankings JSON,  -- ranking results
+    completed_at TIMESTAMP,
+    FOREIGN KEY (survey_id) REFERENCES surveys(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+```
+
+### Ethics Option
+```sql
+CREATE TABLE ethics_options (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+## 3. API 接口设计
+
+### 问卷管理
+```
+POST   /api/surveys           // 创建新问卷
+GET    /api/surveys          // 获取问卷列表
+GET    /api/surveys/{id}     // 获取问卷详情
+PUT    /api/surveys/{id}     // 更新问卷
+DELETE /api/surveys/{id}     // 删除问卷
+```
+
+### 问卷响应
+```
+POST   /api/surveys/{id}/responses        // 提交问卷答案
+GET    /api/surveys/{id}/statistics       // 获取问卷统计数据
+```
+
+### Qualtrics 集成
+```
+POST   /api/qualtrics/create-survey       // 创建 Qualtrics 问卷
+POST   /api/qualtrics/publish-survey      // 发布问卷
+GET    /api/qualtrics/responses           // 获取答案数据
+```
+
+## 4. 前端组件结构
+
+```
+src/
+├── views/
+│   ├── Home.vue                 // 首页
+│   ├── CreateSurvey.vue        // 创建问卷
+│   ├── SurveyList.vue          // 问卷列表
+│   ├── SurveyResponse.vue      // 答题页面
+│   └── Statistics.vue          // 统计结果
+├── components/
+│   ├── Header.vue              // 页头导航
+│   ├── EthicsCard.vue          // 伦理选项卡片
+│   ├── ComparisonView.vue      // 选项对比视图
+│   └── ResultChart.vue         // 结果图表
+└── services/
+    ├── api.js                  // API 调用
+    └── qualtrics.js           // Qualtrics API 封装
+```
+
+## 5. 核心功能实现流程
+
+### 创建问卷流程
+1. 用户填写基本信息（场景、位置等）
+2. 上传图片到服务器获取 URL
+3. 调用 Qualtrics API 创建 MaxDiff 问卷
+4. 保存问卷信息到本地数据库
+5. 发布问卷
+
+### 答题流程
+1. 加载问卷信息和 Qualtrics 嵌入代码
+2. 展示两组选项卡（每组4个选项）
+3. 记录用户选择
+4. 通过 Maximum Difference Scaling 算法计算下一组选项
+5. 完成后保存结果并显示统计数据
+
+### 统计分析流程
+1. 从 Qualtrics API 获取原始数据
+2. 计算每个伦理选项的优先级得分
+3. 生成可视化图表
+4. 展示排名和百分比统计
+
+## 6. 安全考虑
+- 实现用户认证和授权
+- API 请求加密
+- 防止 CSRF 攻击
+- 输入验证和清理
+- Rate limiting

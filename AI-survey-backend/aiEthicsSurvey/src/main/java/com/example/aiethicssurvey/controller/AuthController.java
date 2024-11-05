@@ -6,7 +6,8 @@ import com.example.aiethicssurvey.model.dto.AuthRequest;
 import com.example.aiethicssurvey.model.dto.RegisterRequest;
 import com.example.aiethicssurvey.model.dto.UserDto;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import lombok.RequiredArgsConstructor;
 
@@ -27,7 +28,12 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<UserDto> getCurrentUser(@AuthenticationPrincipal String email) {
+    public ResponseEntity<UserDto> getCurrentUser(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        String email = authentication.getName();
         return ResponseEntity.ok(userService.getCurrentUser(email));
     }
 }

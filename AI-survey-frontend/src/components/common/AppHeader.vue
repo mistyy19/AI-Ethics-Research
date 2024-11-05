@@ -42,7 +42,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue';
+import { defineComponent, ref, onMounted } from 'vue';
 import { 
   IonHeader, 
   IonToolbar, 
@@ -72,52 +72,88 @@ export default defineComponent({
     const isAuthDialogOpen = ref(false);
     const redirectRoute = ref<string | undefined>(undefined);
 
+    // 组件挂载时检查认证状态
+    onMounted(async () => {
+      await authStore.checkAuth();
+    });
+
     const openAuthDialog = () => {
       isAuthDialogOpen.value = true;
     };
 
-    const handleAuthSuccess = () => {
-      isAuthDialogOpen.value = false;
-      redirectRoute.value = undefined; 
+    const handleAuthSuccess = async () => {
+      try {
+        await authStore.checkAuth();
+        isAuthDialogOpen.value = false;
+        
+        if (authStore.isAuthenticated) {
+          if (redirectRoute.value) {
+            const route = redirectRoute.value;
+            redirectRoute.value = undefined;
+            await router.push(route);
+          }
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        redirectRoute.value = undefined;
+      }
     };
 
     const handleLogout = async () => {
-      const alert = await alertController.create({
-        header: 'Confirm Logout',
-        message: 'Are you sure you want to logout?',
-        buttons: [
-          {
-            text: 'Cancel',
-            role: 'cancel'
-          },
-          {
-            text: 'Logout',
-            role: 'confirm',
-            handler: () => {
-              authStore.logout();
-              router.push('/home');
+      try {
+        const alert = await alertController.create({
+          header: 'Confirm Logout',
+          message: 'Are you sure you want to logout?',
+          buttons: [
+            {
+              text: 'Cancel',
+              role: 'cancel'
+            },
+            {
+              text: 'Logout',
+              role: 'confirm',
+              handler: async () => {
+                await authStore.logout();
+                window.location.href = '/'; // 使用完整页面刷新
+              }
             }
-          }
-        ]
-      });
+          ]
+        });
 
-      await alert.present();
+        await alert.present();
+      } catch (error) {
+        console.error('Logout failed:', error);
+        authStore.logout();
+        window.location.href = '/';
+      }
     };
 
-    const handleCreate = () => {
-      if (isAuthenticated.value) {
-        router.push('/create');
-      } else {
-        redirectRoute.value = '/create'; 
+    const handleCreate = async () => {
+      try {
+        if (await authStore.checkAuth()) {
+          router.push('/create');
+        } else {
+          redirectRoute.value = '/create';
+          openAuthDialog();
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        redirectRoute.value = '/create';
         openAuthDialog();
       }
     };
 
-    const handleAccount = () => {
-      if (isAuthenticated.value) {
-        router.push('/user-profile');
-      } else {
-        redirectRoute.value = '/user-profile'; 
+    const handleAccount = async () => {
+      try {
+        if (await authStore.checkAuth()) {
+          router.push('/user-profile');
+        } else {
+          redirectRoute.value = '/user-profile';
+          openAuthDialog();
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        redirectRoute.value = '/user-profile';
         openAuthDialog();
       }
     };
@@ -135,7 +171,6 @@ export default defineComponent({
   }
 });
 </script>
-
 
 <style scoped>
 .left-section {

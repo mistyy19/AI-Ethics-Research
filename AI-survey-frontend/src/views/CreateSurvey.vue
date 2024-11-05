@@ -95,7 +95,7 @@ import { useAuthStore } from '@/stores/auth';
 import AppHeader from '@/components/common/AppHeader.vue';
 import axios from 'axios';
 
-// 创建 axios 实例
+// axios
 const api = axios.create({
   baseURL: 'http://localhost:8080',
   headers: {
@@ -103,7 +103,7 @@ const api = axios.create({
   }
 });
 
-// 添加请求拦截器
+// 请求拦截器
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -134,9 +134,19 @@ export default defineComponent({
   setup() {
     const router = useRouter();
     const authStore = useAuthStore();
+    const loading = ref(false);
 
     onMounted(async () => {
-      await authStore.checkAuth();
+      try {
+        await authStore.checkAuth();
+        if (!authStore.isAuthenticated || !authStore.user?.id) {
+          console.log('User not authenticated, redirecting to home');
+          router.push('/');
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        router.push('/');
+      }
     });
 
     const fileInput = ref<HTMLInputElement | null>(null);
@@ -195,32 +205,39 @@ export default defineComponent({
     });
 
     const createSurvey = async () => {
-      if (!authStore.isAuthenticated) {
+      if (!authStore.isAuthenticated || !authStore.user?.id) {
+        console.error('User not authenticated or user ID missing');
         router.push('/');
         return;
       }
 
-      const formData = new FormData();
-      // 添加用户ID到表单数据
-      if (authStore.user?.id) {
-        formData.append('userId', String(authStore.user.id));
-      }
-      formData.append('location', surveyData.value.location);
-      formData.append('context', surveyData.value.context);
-      formData.append('person', surveyData.value.person);
-      formData.append('isPublic', String(surveyData.value.isPublic));
-      
-      if (surveyData.value.image) {
-        formData.append('image', surveyData.value.image);
-      }
-
+      loading.value = true;
       try {
+        const formData = new FormData();
+        formData.append('userId', String(authStore.user.id));
+        formData.append('location', surveyData.value.location);
+        formData.append('context', surveyData.value.context);
+        formData.append('person', surveyData.value.person);
+        formData.append('isPublic', String(surveyData.value.isPublic));
+        
+        if (surveyData.value.image) {
+          formData.append('image', surveyData.value.image);
+        }
+
         const response = await api.post('/api/qualtrics/createSurvey', formData);
         console.log('Survey created successfully');
         router.push('/user-profile');
       } catch (error: any) {
         console.error('Failed to create survey:', error);
-        alert(error.response?.data?.message || 'Failed to create survey');
+        if (error.response?.status === 401) {
+          console.log('Authentication expired, redirecting to login');
+          await authStore.logout();
+          router.push('/');
+        } else {
+          alert(error.response?.data?.message || 'Failed to create survey. Please try again.');
+        }
+      } finally {
+        loading.value = false;
       }
     };
 
@@ -237,6 +254,7 @@ export default defineComponent({
       fileInput,
       imagePreview,
       triggerFileInput,
+      loading,
     };
   },
 });

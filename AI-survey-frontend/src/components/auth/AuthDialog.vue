@@ -1,7 +1,10 @@
 <template>
-  <ion-modal :is-open="isOpen" @didDismiss="close">
+  <ion-modal :is-open="isOpen" :backdrop-dismiss="false">
     <ion-content>
       <div class="auth-container">
+        <!-- close -->
+        <button class="close-button" @click="closeModal">✕</button>
+        
         <ion-segment v-model="activeTab">
           <ion-segment-button value="login">Login</ion-segment-button>
           <ion-segment-button value="register">Register</ion-segment-button>
@@ -52,7 +55,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue';
+import { defineComponent, ref, watch } from 'vue';
 import { 
   IonModal, 
   IonContent, 
@@ -62,7 +65,8 @@ import {
   IonLabel,
   IonInput,
   IonButton,
-  IonText
+  IonText,
+  toastController
 } from '@ionic/vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
@@ -96,7 +100,14 @@ export default defineComponent({
     const router = useRouter();
     const authStore = useAuthStore();
     const activeTab = ref('login');
-    const loginForm = ref<LoginForm>({ email: '', password: '' });
+    const error = ref('');
+    const isClosingAllowed = ref(false);
+    
+    const loginForm = ref<LoginForm>({
+      email: localStorage.getItem('loginEmail') || '',
+      password: ''
+    });
+    
     const registerForm = ref<RegisterForm>({
       username: '',
       email: '',
@@ -104,51 +115,140 @@ export default defineComponent({
       confirmPassword: ''
     });
 
+    const showToast = async (message: string, type: 'success' | 'info' | 'warning' = 'success') => {
+      const toast = await toastController.create({
+        message: message,
+        duration: 1500,
+        position: 'top',
+        cssClass: `toast-${type}`,
+        mode: 'ios',
+        translucent: false, 
+        buttons: [],
+        animated: true,
+      });
+
+      await toast.present();
+    };
+    // 登录处理函数
     const handleLogin = async () => {
+      error.value = '';
       try {
-        await authStore.login(loginForm.value);
-        emit('auth-success');
-        close();
-        router.push(props.redirectRoute || '/user-profile'); 
-      } catch (error) {
-        // Error is handled by the store
+        const result = await authStore.login(loginForm.value);
+        if (result) {
+          isClosingAllowed.value = true;
+          // 存储邮箱
+          localStorage.setItem('loginEmail', loginForm.value.email);
+          emit('auth-success');
+          
+          await showToast('Login successful!', 'success');
+          
+          setTimeout(() => {
+            emit('update:isOpen', false);
+            if (props.redirectRoute) {
+              router.push(props.redirectRoute);
+            }
+          }, 1000);
+        } else {
+          error.value = authStore.error || 'Login failed. Please try again.';
+          isClosingAllowed.value = false;
+          emit('update:isOpen', true);
+        }
+      } catch (err: any) {
+        error.value = err.response?.status === 401 
+          ? 'Invalid email or password' 
+          : 'Login failed. Please try again.';
+        isClosingAllowed.value = false;
+        emit('update:isOpen', true);
       }
     };
 
+    // 注册处理函数
     const handleRegister = async () => {
+      error.value = '';
+      
       if (registerForm.value.password !== registerForm.value.confirmPassword) {
-        authStore.error = 'Passwords do not match';
+        error.value = 'Passwords do not match';
+        isClosingAllowed.value = false;
+        emit('update:isOpen', true);
         return;
       }
+
       try {
-        await authStore.register(registerForm.value);
-        emit('auth-success');
-        close();
-        router.push('/user-profile');
-      } catch (error) {
-        // Error is handled by the store
+        const result = await authStore.register(registerForm.value);
+        if (result) {
+          isClosingAllowed.value = true;
+          // 存储邮箱
+          localStorage.setItem('loginEmail', registerForm.value.email);
+          emit('auth-success');
+          
+          await showToast('Registration successful!', 'info');
+          
+          setTimeout(() => {
+            emit('update:isOpen', false);
+            router.push(props.redirectRoute || '/user-profile');
+          }, 1000);
+        } else {
+          error.value = authStore.error || 'Registration failed. Please try again.';
+          isClosingAllowed.value = false;
+          emit('update:isOpen', true);
+        }
+      } catch (err: any) {
+        error.value = 'Registration failed. Please try again.';
+        isClosingAllowed.value = false;
+        emit('update:isOpen', true);
       }
     };
 
-    const close = () => {
+    // 打开模态框
+    const openModal = () => {
+      error.value = '';
+      isClosingAllowed.value = false;
+      emit('update:isOpen', true);
+    };
+
+    // 关闭模态框
+    const closeModal = () => {
+      if (authStore.loading) {
+        return;
+      }
+      error.value = '';
+      isClosingAllowed.value = true;
       emit('update:isOpen', false);
     };
+
+    watch(
+      () => props.isOpen,
+      (newVal: boolean) => {
+        if (newVal) {
+          error.value = '';
+          isClosingAllowed.value = false;
+        } else if (!isClosingAllowed.value && !authStore.loading) {
+          emit('update:isOpen', true);
+        }
+      }
+    );
+
+    // 监听 activeTab 变化
+    watch(activeTab, () => {
+      error.value = '';
+    });
 
     return {
       activeTab,
       loginForm,
       registerForm,
       loading: authStore.loading,
-      error: authStore.error,
+      error,
       handleLogin,
       handleRegister,
-      close
+      openModal,
+      closeModal
     };
   }
 });
 </script>
 
-<style scoped>
+<style>
 .auth-container {
   padding: 2rem;
   max-width: 400px;
@@ -165,5 +265,17 @@ ion-item {
 
 ion-button {
   margin-top: 2rem;
+}
+
+.close-button {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  font-size: 24px;
+  background: none;
+  border: none;
+  color: var(--ion-color-dark);
+  cursor: pointer;
+  z-index: 1000;
 }
 </style>

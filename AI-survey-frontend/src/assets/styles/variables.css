@@ -30,4 +30,57 @@
   --ion-color-dark-contrast-rgb: 255, 255, 255;
   --ion-color-dark-shade: #1e2023;
   --ion-color-dark-tint: #383a3e;
+
+  /* Toast Colors */
+  --toast-success-bg: rgba(46, 204, 113);
+  --toast-info-bg: rgba(52, 152, 219);
+  --toast-warning-bg: rgba(230, 126, 34);
+}
+
+/* Toast 样式 */
+ion-toast.toast-success,
+ion-toast.toast-info,
+ion-toast.toast-warning {
+  --width: 200px;
+  --min-width: 200px;
+  --max-width: 200px;
+  --height: auto;
+  --min-height: auto;
+  --border-radius: 16px;
+  --padding-start: 8px;
+  --padding-end: 8px;
+  --padding-top: 8px;
+  --padding-bottom: 8px;
+  text-align: center;
+  margin-top: 20px;
+}
+
+/* 具体类型样式 */
+ion-toast.toast-success::part(container) {
+  background: var(--toast-success-bg);
+  color: white;
+  border-radius: 16px;
+}
+
+ion-toast.toast-info::part(container) {
+  background: var(--toast-info-bg);
+  color: white;
+  border-radius: 16px;
+}
+
+ion-toast.toast-warning::part(container) {
+  background: var(--toast-warning-bg);
+  color: white;
+  border-radius: 16px;
+}
+
+ion-toast.toast-success::part(message),
+ion-toast.toast-info::part(message),
+ion-toast.toast-warning::part(message) {
+  padding: 0;
+  margin: 0;
+  color: white;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
 }

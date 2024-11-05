@@ -74,19 +74,25 @@ export default defineComponent({
 
     // 组件挂载时检查认证状态
     onMounted(async () => {
-      await authStore.checkAuth();
+      try {
+        await authStore.checkAuth();
+      } catch (error) {
+        console.error('Initial auth check failed:', error);
+        // 不触发重定向，只是记录错误
+      }
     });
 
     const openAuthDialog = () => {
       isAuthDialogOpen.value = true;
     };
 
+    // 修改登录成功处理函数
     const handleAuthSuccess = async () => {
       try {
-        await authStore.checkAuth();
-        isAuthDialogOpen.value = false;
-        
-        if (authStore.isAuthenticated) {
+        const isAuthed = await authStore.checkAuth();
+        if (isAuthed) {
+          // 只有在认证成功时才关闭对话框和进行重定向
+          isAuthDialogOpen.value = false;
           if (redirectRoute.value) {
             const route = redirectRoute.value;
             redirectRoute.value = undefined;
@@ -95,10 +101,11 @@ export default defineComponent({
         }
       } catch (error) {
         console.error('Auth check failed:', error);
-        redirectRoute.value = undefined;
+        // 错误时不关闭对话框，不清除重定向路由
       }
     };
 
+    // 登出处理函数保持不变
     const handleLogout = async () => {
       try {
         const alert = await alertController.create({
@@ -114,7 +121,7 @@ export default defineComponent({
               role: 'confirm',
               handler: async () => {
                 await authStore.logout();
-                window.location.href = '/'; // 使用完整页面刷新
+                window.location.href = '/';
               }
             }
           ]
@@ -128,31 +135,37 @@ export default defineComponent({
       }
     };
 
+    // 修改创建处理函数
     const handleCreate = async () => {
       try {
-        if (await authStore.checkAuth()) {
-          router.push('/create');
+        const isAuthed = await authStore.checkAuth();
+        if (isAuthed) {
+          await router.push('/create');
         } else {
           redirectRoute.value = '/create';
           openAuthDialog();
         }
       } catch (error) {
         console.error('Auth check failed:', error);
+        // 错误时打开登录对话框
         redirectRoute.value = '/create';
         openAuthDialog();
       }
     };
 
+    // 修改账户处理函数
     const handleAccount = async () => {
       try {
-        if (await authStore.checkAuth()) {
-          router.push('/user-profile');
+        const isAuthed = await authStore.checkAuth();
+        if (isAuthed) {
+          await router.push('/user-profile');
         } else {
           redirectRoute.value = '/user-profile';
           openAuthDialog();
         }
       } catch (error) {
         console.error('Auth check failed:', error);
+        // 错误时打开登录对话框
         redirectRoute.value = '/user-profile';
         openAuthDialog();
       }

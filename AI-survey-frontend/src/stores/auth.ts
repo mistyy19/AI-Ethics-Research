@@ -11,7 +11,21 @@ export const api = axios.create({
   }
 });
 
-// 从 localStorage 恢复状态的函数，确保正确的 token 格式
+// 添加请求拦截器
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = token;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// 从 localStorage 恢复状态的函数
 const getStoredAuth = () => {
   try {
     const token = localStorage.getItem('token');
@@ -26,42 +40,24 @@ const getStoredAuth = () => {
   }
 };
 
-// 设置 axios 默认 token
 const storedAuth = getStoredAuth();
 if (storedAuth.token) {
   api.defaults.headers.common['Authorization'] = storedAuth.token;
 }
 
-// 添加请求拦截器
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      const bearerToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-      config.headers.Authorization = bearerToken;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
 export const useAuthStore = defineStore('auth', () => {
-  // 初始化时从 localStorage 加载状态
   const initialAuth = getStoredAuth();
   const token = ref<string | null>(initialAuth.token);
   const user = ref<User | null>(initialAuth.user);
   const loading = ref(false);
   const error = ref<string | null>(null);
   const redirectPath = ref<string | null>(null);
+  const isAuthenticating = ref(false);
 
   const isAuthenticated = computed(() => !!user.value && !!token.value);
 
-  // 更新认证信息的函数
   const updateAuth = (newToken: string, newUser: User) => {
     try {
-      // 确保 token 格式正确
       const bearerToken = newToken.startsWith('Bearer ') ? newToken : `Bearer ${newToken}`;
       token.value = bearerToken;
       user.value = newUser;
@@ -71,87 +67,124 @@ export const useAuthStore = defineStore('auth', () => {
       error.value = null;
     } catch (err) {
       console.error('Failed to update auth:', err);
-      logout();
+      handleAuthError();
     }
   };
 
-  const setRedirectPath = (path: string | null) => {
-    redirectPath.value = path;
-  };
-
-  const login = async (form: LoginForm) => {
-    try {
-      loading.value = true;
-      error.value = null;
-      const response = await api.post<AuthResponse>('/api/auth/login', form);
-      updateAuth(response.data.token, response.data.user);
-      return response.data;
-    } catch (err: any) {
-      error.value = err.response?.data?.message || 'Login failed';
-      throw error.value;
-    } finally {
-      loading.value = false;
-    }
-  };
-
-  const register = async (form: RegisterForm) => {
-    try {
-      loading.value = true;
-      error.value = null;
-      const response = await api.post<AuthResponse>('/api/auth/register', form);
-      updateAuth(response.data.token, response.data.user);
-      return response.data;
-    } catch (err: any) {
-      error.value = err.response?.data?.message || 'Registration failed';
-      throw error.value;
-    } finally {
-      loading.value = false;
-    }
-  };
-
-  const logout = () => {
+  const handleAuthError = () => {
     token.value = null;
     user.value = null;
     error.value = null;
-    redirectPath.value = null;
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     delete api.defaults.headers.common['Authorization'];
   };
 
-  const checkAuth = async () => {
+  const login = async (form: LoginForm) => {
+    if (isAuthenticating.value) return false;
+    
     try {
-      const currentToken = localStorage.getItem('token');
-      if (!currentToken) {
-        logout();
-        return false;
+      isAuthenticating.value = true;
+      loading.value = true;
+      error.value = null;
+      
+      const response = await api.post<AuthResponse>('/api/auth/login', form);
+      if (response.data?.token && response.data?.user) {
+        updateAuth(response.data.token, response.data.user);
+        await checkAuth(); // 登录后立即检查认证状态
+        return true;
       }
-
-      const bearerToken = currentToken.startsWith('Bearer ') ? currentToken : `Bearer ${currentToken}`;
-      api.defaults.headers.common['Authorization'] = bearerToken;
-      
-      const response = await api.get<User>('/api/auth/me');
-      user.value = response.data;
-      token.value = bearerToken;
-      localStorage.setItem('token', bearerToken);
-      localStorage.setItem('user', JSON.stringify(response.data));
-      
-      return true;
-    } catch (err) {
-      console.error('Auth check failed:', err);
-      logout();
+      error.value = 'Invalid response from server';
       return false;
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 
+                   (err.response?.status === 401 ? 'Invalid email or password' : 'Login failed');
+      return false;
+    } finally {
+      loading.value = false;
+      isAuthenticating.value = false;
     }
   };
 
-  // 添加响应拦截器处理认证错误
+  const register = async (form: RegisterForm) => {
+    if (isAuthenticating.value) return false;
+    
+    try {
+      isAuthenticating.value = true;
+      loading.value = true;
+      error.value = null;
+      
+      const response = await api.post<AuthResponse>('/api/auth/register', form);
+      if (response.data?.token && response.data?.user) {
+        updateAuth(response.data.token, response.data.user);
+        await checkAuth(); // 注册后立即检查认证状态
+        return true;
+      }
+      error.value = 'Invalid response from server';
+      return false;
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Registration failed';
+      return false;
+    } finally {
+      loading.value = false;
+      isAuthenticating.value = false;
+    }
+  };
+
+  const logout = () => {
+    handleAuthError();
+    redirectPath.value = null;
+  };
+
+  const checkAuth = async () => {
+    if (!token.value || isAuthenticating.value) {
+      return false;
+    }
+
+    try {
+      isAuthenticating.value = true;
+      const response = await api.get<User>('/api/auth/me');
+      
+      if (response.data) {
+        user.value = response.data;
+        // 确保 token 和用户信息都保存在本地
+        localStorage.setItem('user', JSON.stringify(response.data));
+        if (token.value) {
+          localStorage.setItem('token', token.value);
+          api.defaults.headers.common['Authorization'] = token.value;
+        }
+        return true;
+      }
+      
+      handleAuthError();
+      return false;
+    } catch (err) {
+      console.error('Auth check failed:', err);
+      handleAuthError();
+      return false;
+    } finally {
+      isAuthenticating.value = false;
+    }
+  };
+
+  // 响应拦截器
   api.interceptors.response.use(
     response => response,
     error => {
       if (error.response?.status === 401 || error.response?.status === 403) {
-        logout();
-        if (typeof window !== 'undefined') {
-          window.location.href = '/';  // 强制页面刷新
+        const isModalOpen = localStorage.getItem('isModalOpen');
+        console.log("401/403 error detected. isModalOpen:", isModalOpen);
+        
+        if (!isAuthenticating.value && isModalOpen !== 'true') {
+          console.log("Triggering logout and redirecting to home");
+          handleAuthError();
+          const isAuthEndpoint = error.config.url.includes('/api/auth/');
+          if (!isAuthEndpoint && typeof window !== 'undefined') {
+            localStorage.setItem('redirectPath', window.location.pathname);
+            window.location.href = '/';
+          }
+        } else {
+          console.log("Modal is open or authentication in progress, not redirecting.");
         }
       }
       return Promise.reject(error);
@@ -165,11 +198,10 @@ export const useAuthStore = defineStore('auth', () => {
     error,
     isAuthenticated,
     redirectPath,
-    setRedirectPath,
     login,
     register,
     logout,
     checkAuth,
-    api  // 导出 api 实例
+    api
   };
 });

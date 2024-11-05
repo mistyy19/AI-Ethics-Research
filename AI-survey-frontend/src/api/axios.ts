@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8080/api',  // SpringBoot
+  baseURL: 'http://localhost:8080/api',  // SpringBoot 
   timeout: 5000
 });
 
@@ -19,14 +19,25 @@ api.interceptors.request.use(
   }
 );
 
-// 响应拦截器：处理常见错误
+// 响应拦截器：处理 401 错误
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
     if (error.response?.status === 401) {
-      // 未授权，清除token并重定向到登录页
       localStorage.removeItem('token');
-      window.location.href = '/login';
+
+      // 调试输出
+      const isModalOpen = localStorage.getItem('isModalOpen');
+      console.log("401 Unauthorized detected, isModalOpen:", isModalOpen);
+      
+      // 仅在模态框未打开时才进行重定向
+      if (isModalOpen !== 'true') {
+        window.location.href = '/login';
+      } else {
+        // 在模态框打开时返回一个 rejected Promise，以保持页面状态
+        console.log("Modal is open, preventing redirect on 401");
+        return Promise.reject(error);
+      }
     }
     return Promise.reject(error);
   }

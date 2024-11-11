@@ -33,14 +33,16 @@
             <ion-input v-model="surveyData.location" placeholder="Enter the location" required></ion-input>
           </ion-item>
 
-          <!-- Context Edit Button -->
-          <ion-item class="form-item context-item">
+          <!-- Context Input -->
+          <ion-item class="form-item">
             <ion-label position="stacked">Context</ion-label>
-            <div class="button-wrapper">
-              <ion-button class="standard-btn" expand="block" @click="openContextModal">
-                Edit context
-              </ion-button>
-            </div>
+            <ion-textarea
+              v-model="surveyData.context"
+              placeholder="Describe the context"
+              :auto-grow="true"
+              :rows="6"
+              class="context-textarea"
+            ></ion-textarea>
           </ion-item>
 
           <!-- Person Input -->
@@ -61,35 +63,13 @@
           </ion-button>
         </div>
       </section>
-
-      <!-- Context Modal -->
-      <ion-modal :is-open="isContextModalOpen" @didDismiss="closeContextModal" class="context-modal">
-        <ion-content class="ion-no-padding" :scroll-y="false">
-          <div class="modal-container">
-            <h2>Edit Context</h2>
-            <div class="textarea-wrapper">
-              <ion-textarea
-                v-model="contextTemp"
-                placeholder="Describe the context"
-                class="modal-textarea"
-                :auto-grow="false"
-                :rows="20"
-              ></ion-textarea>
-            </div>
-            <div class="button-group">
-              <ion-button expand="block" @click="closeContextModal" class="cancel-btn">Cancel</ion-button>
-              <ion-button expand="block" @click="saveContext" class="save-btn">Save</ion-button>
-            </div>
-          </div>
-        </ion-content>
-      </ion-modal>
     </ion-content>
   </ion-page>
 </template>
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue';
-import { IonPage, IonContent, IonItem, IonLabel, IonInput, IonTextarea, IonButton, IonToggle, IonModal } from '@ionic/vue';
+import { IonPage, IonContent, IonItem, IonLabel, IonInput, IonTextarea, IonButton, IonToggle } from '@ionic/vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import AppHeader from '@/components/common/AppHeader.vue';
@@ -128,7 +108,6 @@ export default defineComponent({
     IonTextarea,
     IonButton,
     IonToggle,
-    IonModal,
     AppHeader,
   },
   setup() {
@@ -159,9 +138,6 @@ export default defineComponent({
       isPublic: false,
     });
 
-    const isContextModalOpen = ref(false);
-    const contextTemp = ref(surveyData.value.context);
-
     const triggerFileInput = () => {
       fileInput.value?.click();
     };
@@ -179,20 +155,6 @@ export default defineComponent({
       } else {
         imagePreview.value = null;
       }
-    };
-
-    const openContextModal = () => {
-      contextTemp.value = surveyData.value.context;
-      isContextModalOpen.value = true;
-    };
-
-    const closeContextModal = () => {
-      isContextModalOpen.value = false;
-    };
-
-    const saveContext = () => {
-      surveyData.value.context = contextTemp.value;
-      closeContextModal();
     };
 
     const isFormValid = computed(() => {
@@ -246,11 +208,6 @@ export default defineComponent({
       handleImageUpload,
       isFormValid,
       createSurvey,
-      isContextModalOpen,
-      openContextModal,
-      closeContextModal,
-      contextTemp,
-      saveContext,
       fileInput,
       imagePreview,
       triggerFileInput,
@@ -294,20 +251,7 @@ h1 {
   margin-bottom: 0.5rem;
 }
 
-.context-item ion-label {
-  margin-bottom: 0.5rem;
-}
-
-.context-item ion-button {
-  margin-top: 0;
-}
-
 .upload-section {
-  width: 100%;
-  margin: 0.5rem 0;
-}
-
-.button-wrapper {
   width: 100%;
   margin: 0.5rem 0;
 }
@@ -352,39 +296,7 @@ h1 {
   display: block;
 }
 
-/* Modal styles */
-.context-modal::part(content) {
-  --height: 90%;
-  --width: 90%;
-  --max-width: 800px;
-  --max-height: 68vh;
-}
-
-.modal-container {
-  height: 100%;
-  padding: 2rem;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.modal-container h2 {
-  text-align: center;
-  margin-bottom: 1.5rem;
-  flex-shrink: 0;
-}
-
-.textarea-wrapper {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  margin: 1rem 0;
-}
-
-.modal-textarea {
-  flex: 1;
-  height: 100% !important;
+.context-textarea {
   background: #f8f9fa;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
@@ -393,36 +305,7 @@ h1 {
   --padding-bottom: 1rem;
   --padding-start: 1rem;
   --padding-end: 1rem;
-}
-
-.modal-textarea::part(textarea) {
-  height: 100%;
-  min-height: 100%;
-}
-
-.button-group {
-  display: flex;
-  gap: 1rem;
-  margin-top: 1rem;
-  flex-shrink: 0;
-}
-
-.cancel-btn {
-  --background: var(--ion-color-medium);
-  --color: white;
-  --border-radius: 28px;
-  flex: 1;
-  font-size: 1.2rem;
-  text-transform: capitalize;
-}
-
-.save-btn {
-  --background: var(--ion-color-primary);
-  --color: white;
-  --border-radius: 28px;
-  flex: 1;
-  font-size: 1.2rem;
-  text-transform: capitalize;
+  margin-top: 0.5rem;
 }
 
 .create-survey-btn {

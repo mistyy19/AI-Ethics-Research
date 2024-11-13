@@ -4,7 +4,7 @@
     <ion-content>
       <section class="judge-survey-section">
         <div class="judge-survey-content">
-          <h1>Judge</h1>
+          <h1>Judge Surveys</h1>
 
           <!-- Search Section -->
           <div class="search-section">
